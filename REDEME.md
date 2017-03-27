@@ -1,5 +1,43 @@
-(function(window) {
+## 手势密码
 
+利用原生JavaScript实现了手势密码组件。
+
+引入js和css后，可以通过new GesturePwd(obj).init()实现一个手势密码功能，通过obj传入参数
+
+obj = {
+	lowestCount: 5, // 密码最少个数,默认为5，可选
+	colNum: 3, // 每行多少个圈，默认为3个，可选
+	insertWrapId: "wrap" // 生成的手势解锁的父DOM节点的id，必须传入
+}
+
+整体UI渲染利用了canvas来实现，事件通过DOM绑定实现。
+
+
+HTML部分结构：
+
+	<canvas id="canvas" width="300" height="300"></canvas>
+	<div id="title" class="title"></div>
+	<div id="reset">重置密码</div> 
+
+canvas实现手势密码，title实现提示，reset实现密码重置。
+
+
+
+JS部分：
+
+利用到了两个对象，一个Circle，一个GesturePwd。
+
+Circle是辅助对象，代表每个密码圆。
+
+原型对象上有三个方法，draw是用来渲染每个密码圆，如下图
+
+![](http://i4.buimg.com/567571/7322b9627dd073ac.png)
+
+drawPoint是用来渲染每个密码圆被选中时的中心小圆，如下图绿色部分
+
+![](http://i4.buimg.com/567571/e5a9cd16e6daa820.png)
+
+contain是用来判断当前鼠标坐标是否在当前圆内
 
 	// 辅助对象，代表每个密码圆
 	function Circle(x, y, r, key) {
@@ -40,17 +78,22 @@
 			}
 		}
 
-	// 手势密码构造函数
-	window.GesturePwd = function(obj) {
-		obj = obj || {};
-		this.lowestCount = obj.lowestCount ? obj.lowestCount : 5; // 密码最少个数,默认为5
-		this.colNum = obj.colNum ? obj.colNum : 3; // 每行多少个圈，默认为3个
-		this.insertWrapId = obj.insertWrapId; // 生成的手势解锁的父DOM节点的id
-		this.touchFlag = false; // 点击标志
-	}
 
-	GesturePwd.prototype = {
-		initUI: function() {
+GesturePwd是主体组件，在init方法中将渲染UI和事件绑定分开。
+
+		// 初始化事件，分成两个子函数，一个渲染UI，一个绑定事件
+		init: function() {
+			// 初始化canvas、title和一个重置button,绘制整个初始界面
+			this.initUI();
+
+			// 绑定事件
+			this.bindEvent();
+		}
+		
+		
+在initUI方法中
+
+	initUI: function() {
 			// 创建DOM节点
 			this.createDOM();
 			// 从localStorage中取得缓存，设置当前状态为2，如果不存在生成一个新对象，设置当前状态为0
@@ -63,18 +106,12 @@
 			// 获取ctx值之后渲染canvas画板
 			this.initCircle();			
 		},
-		// 初始化canvas、title和一个带有重置功能的div，只是插入了DOM节点
-		createDOM: function(){
-			var wrap = document.getElementById(this.insertWrapId);
-			var str = `  
-            	<canvas id="canvas" width="300" height="300"></canvas>
-            		<div id="title" class="title"></div>
-            	<div id="reset">重置密码</div>                
-        	`;
-			wrap.innerHTML = str;			
-		},
+		
+先通过innerHTML，向父组件插入生成好的HTML节点。
 
-		// 如果从localStorage中取得缓存，那么设置当前状态为2，如果不存在生成一个新对象，设置当前状态为0
+然后从localStorage取得密码缓存，设置当前状态currState=2，不存在则生成新对象，currState=0。
+
+	// 如果从localStorage中取得缓存，那么设置当前状态为2，如果不存在生成一个新对象，设置当前状态为0
 		getLocalStorage: function() {
 			if (window.localStorage.getItem("pwd")) {
 				this.pwd = JSON.parse(window.localStorage.getItem("pwd"));
@@ -85,7 +122,9 @@
 			}
 		},
 
-		// 根据当前的currState设置title内容，分为0、1、2
+根据上个方法获得的currState来设置整个组件的状态。
+
+	// 根据当前的currState设置title内容，分为0、1、2
 		switchState: function() {
 			if (this.currState == 2) {
 				// 此时可以重置密码
@@ -101,8 +140,17 @@
 		},
 
 
-		// 根据输入的每行个数来绘制整个canvas的密码圆圈
-		initCircle: function() {
+最后根据输入的每行个数来绘制整个canvas的密码圆圈。
+
+在这个方法中，设置了三个数组，分别是circles、lastCircles和restCircles，所有数组保存的都是Circle对象。
+
+circles是整个canvas中一个有多少个Circle对象，比如正常情况下的9个。
+
+lashCircles代表的是当前滑动过程中选中的Circle对象。
+
+restCircles代表的是还没有被选中的Circle对象，为了使已点击过的密码不再被选中。
+
+	initCircle: function() {
 			this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
 			this.circles = []; // 全部密码点
 			this.lastCircles = []; // 已经选中了的密码点
@@ -123,6 +171,9 @@
 			}
 		},
 
+
+整个UI渲染完后就为DOM节点添加事件监听
+
 		// 绑定事件函数
 		bindEvent: function() {
 			var self = this;
@@ -142,11 +193,17 @@
 				self.touchEnd(e);
 			}, false);
 			document.getElementById("reset").addEventListener("click", function(e) {
-				console.log(4);
+				//console.log(4);
 				e.preventDefault();
 				self.resetPwd();
 			}, false);
 		},	
+		
+当touchstart、touchmove、touchend时都会触发不同的事件，并且点击reset重置密码后，也会触发一个resetPwd事件。
+
+
+当touchstart触发后，触发touchStart事件，获得当前鼠标坐标值，如果当前点击的在某个圆圈内，那么设置touchFlag为true，向lastCircles添加当前圆，并且触发drawPoint方法。
+
 		// touch开始触发
 		touchStart: function(e) {
 			var point = this.getCurrPosition(e);
@@ -160,8 +217,9 @@
 					this.drawPoint();
 				}
 			}
-		},			
-		
+		},	
+
+当touchmove触发时，触发touchMove放啊，每次清除上次的canvas，重新绘制UI，否则会出现连线覆盖，持续判断当前是否经过一个新的密码圆，然后继续绘制UI。
 
 		// touch滑动持续触发
 		touchMove: function(e) {
@@ -177,7 +235,7 @@
 			//console.log(2);
 
 			// 这里顺序反了的话会出现闪烁效果
-			this.drawLine(point); // 每帧画圆心
+			this.drawLine(point); 
 			this.drawPoint();
 
 			for (var i = 0; i < this.restCircles.length; i++) {
@@ -189,6 +247,9 @@
 				}
 			}
 		},
+		
+当touchend发生后，首先会判断lastCircles中元素个数是否大于等于最小密码个数，如果符合条件就会对lastCircles中的数据进行判断、如果正确就会保存，调用storePwd方法，在半秒后重置UI。
+
 		// 结束touch触发
 		touchEnd: function(e) {
 			if (!this.touchFlag) return;
@@ -206,47 +267,10 @@
 				self.switchState();
 				self.initCircle();
 			}, 500);
-		},			
-		// 获得当前的鼠标坐标相对于canvas的坐标值
-		getCurrPosition: function(e) {
-			rect = e.currentTarget.getBoundingClientRect();
-			var point = {
-				x: e.touches[0].clientX - rect.left,
-				y: e.touches[0].clientY - rect.top
-			}
-			return point;
-		},
-
-		// 画小点
-		drawPoint: function() {
-			for (var i = 0; i < this.lastCircles.length; i++) {
-				this.lastCircles[i].drawPoint(this.ctx);
-			}
 		},		
-		// 渲染选中数组的连线
-		drawLine: function(point) {
-			this.ctx.beginPath();			
-			this.ctx.lineWidth = 3;
-			this.ctx.moveTo(this.lastCircles[0].x, this.lastCircles[0].y);
-			//console.log(this.lastCircles.length);
-			for (var i = 1; i < this.lastCircles.length; i++) {
-				this.ctx.lineTo(this.lastCircles[i].x, this.lastCircles[i].y);
-			}
-			this.ctx.lineTo(point.x, point.y);
-			this.ctx.stroke();
-			this.ctx.closePath();
-		},	
-		// 根据传入的颜色不同，渲染不同的状态
-		drawStatusPoint: function(color) {
-			for (var i = 0; i < this.lastCircles.length; i++) {
-				this.lastCircles[i].draw(this.ctx, color);
-				this.lastCircles[i].drawPoint(this.ctx, color);
-			}
-		},			
-		// 判断两个数组是否相等，用来验证密码
-		equal: function(arr1, arr2){
-			return arr1.sort().join() === arr2.sort().join();
-		},
+		
+下面是storePwd的具体逻辑，根据当前currState的不同，分别判断逻辑。
+
 
 		// 根据currState的不同来验证密码，并且保存密码
 		storePwd: function(pwd) {
@@ -281,7 +305,10 @@
 			}
 		},
 		
-		// 点击重置密码后将currState设为0，密码清空，重新渲染canvas
+		
+如果currState=2，那么reset的display为block，可以点击，触发resetPwd事件，点击重置密码后将currState设为0，密码清空，重新渲染canvas。
+
+	// 点击重置密码后将currState设为0，密码清空，重新渲染canvas
 		resetPwd: function() {
 			window.localStorage.removeItem("pwd");
 			this.currState = 0;
@@ -290,13 +317,8 @@
 			this.initCircle();
 		},
 		
-		// 初始化事件，分成两个子函数，一个渲染UI，一个绑定事件
-		init: function() {
-			// 初始化canvas、title和一个重置button,绘制整个初始界面
-			this.initUI();
+		
+整个组件的设计逻辑大体就是上面所述，与给定的设计原形略微不同，是因为我认为给定的原形中有两个按钮，通过按钮来判断当前要执行的逻辑，如果在设置逻辑中输入一次密码后，用户突然点击验证密码，会出现问题。
 
-			// 绑定事件
-			this.bindEvent();
-		}
-	}
-})(window);
+所以我修改了这部分的逻辑，只设置一个reset按钮，只有当设置好密码后才会显示这个按钮，点击这个按钮会重置密码进入设置密码状态。
+
