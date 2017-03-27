@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<title>手势密码</title>
+	<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+	<link rel="stylesheet" href="./style.css">
+	
+	
+</head>
+<body>
+<div id="wrap">
+</div>
+<script src="script.js"></script>
+<script>
+	var a = new GesturePwd({
+		insertWrapId: "wrap",
+		lowestCount: 5,
+	});
+	a.init();
+</script>	
+</body>
+</html>

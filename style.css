@@ -1,0 +1,35 @@
+body
+{
+    text-align: center;
+
+    background-color: #fff;
+}
+.title
+{
+    color: #000;
+    font-size: 22px;
+}
+#wrap
+{
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+#canvas
+{
+    display: inline-block;
+
+    margin-top: 15px;
+}
+#reset
+{
+    font-size: 14px;
+
+    display: none;
+
+    margin-top: 50px;
+
+    color: #646464;
+}
